@@ -23,7 +23,7 @@ public class DownloadInfo {
     @Retention(RetentionPolicy.SOURCE)
     public @interface Status {}
 
-    public DownloadInfo(int status, File file, Exception exception) {
+    public DownloadInfo(@Status int status, File file, Exception exception) {
         this.status = status;
         this.file = file;
         this.exception = exception;

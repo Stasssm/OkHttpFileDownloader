@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
@@ -16,12 +17,15 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import test.com.okhttpfiledownloader.model.DownloadInfo;
 
 /**
  * Created by Stas on 05.06.17.
@@ -29,13 +33,14 @@ import okhttp3.Response;
 public abstract class DownloadService<T> extends Service {
 
     public static final String TAG = DownloadService.class.getName();
-
+    public static final int POLICY_CONTINUE = 1;
+    public static final int POLICY_HANDLE = 2;
+    protected OkHttpClient okHttpClient;
     private volatile boolean isDownloading;
     private volatile T downloadObject;
     private boolean isReconnect = false;
     private Thread thread;
     private Handler handler = new Handler(Looper.getMainLooper());
-    protected OkHttpClient okHttpClient;
 
 
     @Override
@@ -56,7 +61,7 @@ public abstract class DownloadService<T> extends Service {
     public void start() {
         downloadObject = getNextDownloadObject();
         if (downloadObject != null) {
-            thread = new Thread(backgroundRunnable);
+            thread = new DownloadThread();
             thread.start();
         }
     }
@@ -77,7 +82,9 @@ public abstract class DownloadService<T> extends Service {
 
     protected abstract ProgressListener getProgressListener();
 
-    protected abstract void save(T obj);
+    protected abstract void success(T obj, DownloadInfo downloadInfo);
+
+    protected abstract @Policy int error(T obj, DownloadInfo downloadInfo);
 
     protected abstract boolean hasNext();
 
@@ -118,11 +125,11 @@ public abstract class DownloadService<T> extends Service {
         return isReconnect;
     }
 
-    private void saveAndStartNext() {
+    private void saveAndStartNext(final DownloadInfo downloadInfo) {
         handler.post(new Runnable() {
             @Override
             public void run() {
-                save(downloadObject);
+                success(downloadObject, downloadInfo);
                 downloadObject = null;
                 isDownloading = false;
                 if (hasNext()) {
@@ -132,15 +139,33 @@ public abstract class DownloadService<T> extends Service {
         });
     }
 
-    private Runnable backgroundRunnable = new Runnable() {
+    private void handleError(final DownloadInfo downloadInfo) {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                int policy = error(downloadObject, downloadInfo);
+                if (policy == POLICY_CONTINUE && hasNext()) {
+                    start();
+                }
+            }
+        });
+    }
+
+    @IntDef({POLICY_CONTINUE, POLICY_HANDLE})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface Policy {
+    }
+
+    private final class DownloadThread extends Thread {
+
         @Override
         public void run() {
+            super.run();
             isDownloading = true;
             String url = getUrl(downloadObject);
             String fileName = getFileName();
             if (!TextUtils.isEmpty(fileName)) {
                 File file = new File(fileName);
-                boolean isCreated = true;
                 try {
                     if (!file.exists()) {
                         //TODO create logic when file not created
@@ -164,17 +189,25 @@ public abstract class DownloadService<T> extends Service {
                     output.flush();
                     output.close();
                     input.close();
-                    saveAndStartNext();
+                    DownloadInfo downloadInfo =
+                            new DownloadInfo(DownloadInfo.FILE_DOWNLOADED, null, null);
+                    saveAndStartNext(downloadInfo);
                 } catch (FileNotFoundException e) {
+                    DownloadInfo downloadInfo =
+                            new DownloadInfo(DownloadInfo.FILE_DOWNLOAD_ERROR, null, e);
+                    handleError(downloadInfo);
                     e.printStackTrace();
                 } catch (IOException e) {
+                    DownloadInfo downloadInfo =
+                            new DownloadInfo(DownloadInfo.FILE_DOWNLOAD_ERROR, file, e);
+                    handleError(downloadInfo);
                     e.printStackTrace();
                 }
             } else {
-                //TODO
+                throw new NullPointerException("Empty file name");
             }
             isDownloading = false;
         }
-    };
+    }
 
 }

@@ -5,6 +5,7 @@ import android.util.Log;
 import test.com.downloadlibrary.model.SomeObject;
 import test.com.okhttpfiledownloader.DownloadService;
 import test.com.okhttpfiledownloader.ProgressListener;
+import test.com.okhttpfiledownloader.model.DownloadInfo;
 
 /**
  * Created by Stas on 07.06.17.
@@ -55,21 +56,17 @@ public class MainService extends DownloadService<SomeObject> {
 
     @Override
     public ProgressListener getProgressListener() {
-        Log.d(TAG, "getProgressListener");
-        if (progressListener == null) {
-            progressListener = new ProgressListener() {
-                @Override
-                public void update(long bytesRead, long contentLength, boolean done) {
-                    Log.d(TAG,"byteRead = " + bytesRead + " contentLength" + contentLength);
-                }
-            } ;
-        }
         return progressListener;
     }
 
     @Override
-    public void save(SomeObject obj) {
-        Log.d(TAG, "save");
+    public void success(SomeObject obj, DownloadInfo  downloadInfo) {
+        Log.d(TAG, "success");
+    }
+
+    @Override
+    protected int error(SomeObject obj, DownloadInfo downloadInfo) {
+        return POLICY_CONTINUE;
     }
 
     @Override
