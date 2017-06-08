@@ -45,3 +45,4 @@ Also do not forget to start your service and add Modify AndroidManifest.xml
 
 ## Service work diagram
 
+![](https://user-images.githubusercontent.com/4447037/26929228-8c6e2b20-4c61-11e7-9924-ef8183d92f63.png)
