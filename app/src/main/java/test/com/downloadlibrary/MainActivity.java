@@ -2,6 +2,7 @@ package test.com.downloadlibrary;
 
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
@@ -32,6 +33,9 @@ public class MainActivity extends AppCompatActivity {
                     mainService.connectCustomListener(new ProgressListener() {
                         @Override
                         public void update(long bytesRead, long contentLength, boolean done) {
+                            Log.d(MainService.TAG, "bytesRead = " + bytesRead +
+                                    " contentLength = " + contentLength +
+                                    " done = " + done);
                             int progress = (int) (((float) bytesRead / (float) contentLength) * 100);
                             progressBar.setProgress(progress);
                         }
