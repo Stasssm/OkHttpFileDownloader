@@ -70,10 +70,18 @@ public abstract class DownloadService<T> extends Service {
                 thread = new DownloadThread();
                 thread.start();
             }
-            return true;
+            return downloadObject != null;
         } else {
             return false;
         }
+    }
+
+    public boolean interrupt() {
+        if (thread == null || !isDownloading) {
+            return false;
+        }
+        thread.interrupt();
+        return true;
     }
 
     public boolean isDownloading() {
@@ -100,6 +108,10 @@ public abstract class DownloadService<T> extends Service {
 
     protected void init() {
         //this is empty init method, you can init here what you want
+    }
+
+    protected void interrupted(T downloadObject, @Nullable File file) {
+
     }
 
     protected void initClient() {
@@ -140,8 +152,7 @@ public abstract class DownloadService<T> extends Service {
             @Override
             public void run() {
                 success(downloadObject, downloadInfo);
-                downloadObject = null;
-                isDownloading = false;
+                clearAll();
                 if (hasNext()) {
                     start();
                 }
@@ -154,11 +165,18 @@ public abstract class DownloadService<T> extends Service {
             @Override
             public void run() {
                 int policy = error(downloadObject, downloadInfo);
+                clearAll();
                 if (policy == POLICY_CONTINUE && hasNext()) {
                     start();
                 }
             }
         });
+    }
+
+    protected void clearAll() {
+        isDownloading = false;
+        downloadObject = null ;
+        thread = null;
     }
 
     @IntDef({POLICY_CONTINUE, POLICY_HANDLE})
@@ -174,6 +192,7 @@ public abstract class DownloadService<T> extends Service {
             isDownloading = true;
             String url = getUrl(downloadObject);
             String fileName = getFileName(downloadObject);
+            if (checkInterruption(null)) return;
             if (!TextUtils.isEmpty(fileName)) {
                 File file = new File(fileName);
                 try {
@@ -191,14 +210,22 @@ public abstract class DownloadService<T> extends Service {
 
                     byte[] data = new byte[1024];
                     int total = 0;
+                    boolean interruptFlag = false;
                     while ((total = input.read(data)) != -1) {
                         output.write(data, 0, total);
+                        if (checkInterruption(file))  {
+                            interruptFlag = true;
+                            break;
+                        }
                     }
                     //TODO check what happens when exception is thrown
                     // is there any memory leak in input and output buffer?
                     output.flush();
                     output.close();
                     input.close();
+                    if (interruptFlag) {
+                        return;
+                    }
                     DownloadInfo downloadInfo =
                             new DownloadInfo(DownloadInfo.FILE_DOWNLOADED, null, null);
                     saveAndStartNext(downloadInfo);
@@ -219,5 +246,20 @@ public abstract class DownloadService<T> extends Service {
             isDownloading = false;
         }
     }
+
+    private boolean checkInterruption(final File file) {
+        if (Thread.interrupted()) {
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    interrupted(downloadObject,file);
+                    clearAll();
+                }
+            });
+            return true;
+        }
+        return false;
+    }
+
 
 }

@@ -6,12 +6,14 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import test.com.okhttpfiledownloader.ProgressListener;
 
 public class MainActivity extends AppCompatActivity {
 
-    private Button button;
+    private Button mDownloadButton;
+    private Button mInterruptButton;
     private ProgressBar progressBar;
 
 
@@ -23,9 +25,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initViews() {
-        button = (Button) findViewById(R.id.button_start);
+        mDownloadButton = (Button) findViewById(R.id.button_start);
+        mInterruptButton = (Button) findViewById(R.id.button_stop);
         progressBar = (ProgressBar) findViewById(R.id.progress_downloading);
-        button.setOnClickListener(new View.OnClickListener() {
+        mDownloadButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 MainService mainService = MainService.getMainService();
@@ -41,6 +44,15 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
                     mainService.start();
+                }
+            }
+        });
+        mInterruptButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean isStopPossible = MainService.getMainService().interrupt();
+                if (!isStopPossible) {
+                    Toast.makeText(MainActivity.this,"Nothing to stop", Toast.LENGTH_LONG).show();
                 }
             }
         });

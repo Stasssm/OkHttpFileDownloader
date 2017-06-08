@@ -1,6 +1,7 @@
 package test.com.downloadlibrary;
 
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.File;
 import java.util.PriorityQueue;
@@ -83,6 +84,12 @@ public class MainService extends DownloadService<SomeObject> {
         obj.incrementPriority();
         queue.add(obj);
         return POLICY_HANDLE;
+    }
+
+    @Override
+    protected void interrupted(SomeObject downloadObject, File file) {
+        super.interrupted(downloadObject, file);
+        Toast.makeText(this, "Download interrupted", Toast.LENGTH_LONG).show();
     }
 
     @Override
