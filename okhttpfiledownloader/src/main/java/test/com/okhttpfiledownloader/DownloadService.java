@@ -63,6 +63,10 @@ public abstract class DownloadService<T> extends Service {
         return null;
     }
 
+    /**
+     * Main method to start downloading process
+     * @return false - if downloading can not be started or another object is downloading now
+     */
     public boolean start() {
         if (!isDownloading) {
             downloadObject = getNextDownloadObject();
@@ -76,6 +80,11 @@ public abstract class DownloadService<T> extends Service {
         }
     }
 
+    /**
+     * Stops downloading of the current object
+     * process is asynchronous {@link #interrupted(T,File)}
+     * @return false - if nothing to stop
+     */
     public boolean interrupt() {
         if (thread == null || !isDownloading) {
             return false;
@@ -84,36 +93,85 @@ public abstract class DownloadService<T> extends Service {
         return true;
     }
 
+    /**
+     * @return true - if an object is downloading
+     */
     public boolean isDownloading() {
         return isDownloading;
     }
 
+
+    /**
+     * @return current download object
+     */
     public T getDownloadObject() {
         return downloadObject;
     }
 
+
+    /**
+     * @return next download object, that we want to download.
+     */
     protected abstract T getNextDownloadObject();
 
+    /**
+     * @param downloadObject - object that we want to download
+     * @return download url for this link
+     */
     protected abstract String getUrl(T downloadObject);
 
+    /**
+     * @param downloadObject - object that we want to download
+     * @return full file name where we want to save our data
+     */
     protected abstract String getFileName(T downloadObject);
 
+    /**
+     * @return listener for download progress
+     */
     protected abstract ProgressListener getProgressListener();
 
+    /**
+     * Called when object was downloaded successfully
+     * @param obj - downloaded object
+     * @param downloadInfo - all information about download
+     */
     protected abstract void success(T obj, DownloadInfo downloadInfo);
 
+    /**
+     * @param obj - downloaded object with errors
+     * @param downloadInfo - all information about download
+     * @return Policy {@link #POLICY_CONTINUE},{@link #POLICY_HANDLE}
+     */
     protected abstract @Policy int error(T obj, DownloadInfo downloadInfo);
 
+    /**
+     * @return do we have the next file to continue downloading
+     */
     protected abstract boolean hasNext();
 
+
+    /**
+     *  init all what we want , it is called from {@link #onStartCommand(Intent, int, int)}
+     */
     protected void init() {
         //this is empty init method, you can init here what you want
     }
 
+
+    /**
+     * This is callback for {@link #interrupt()}
+     * @param downloadObject - object thar was interrupted
+     * @param file - can be null if interruption was before downloading process
+     */
     protected void interrupted(T downloadObject, @Nullable File file) {
 
     }
 
+
+    /**
+     *  Init okhttp client  for downloading
+     */
     protected void initClient() {
         if (okHttpClient == null) {
             OkHttpClient.Builder bd = new OkHttpClient.Builder();
@@ -132,6 +190,13 @@ public abstract class DownloadService<T> extends Service {
         }
     }
 
+    /**
+     * Generate request for current object that we want to download
+     * @param object - object that we want to download
+     * @param file - where we want to save it {@link #getFileName(Object)}
+     * @param url - generated Url {@link #getUrl(Object)}
+     * @return builder for request
+     */
     protected Request.Builder buildRequest(T object, File file, String url) {
         return new Request.Builder().url(url);
     }
@@ -147,6 +212,11 @@ public abstract class DownloadService<T> extends Service {
         return isReconnect;
     }
 
+
+    /**
+     * Called from download thread when the file is downloaded.
+     * @param downloadInfo
+     */
     private void saveAndStartNext(final DownloadInfo downloadInfo) {
         handler.post(new Runnable() {
             @Override
@@ -160,6 +230,11 @@ public abstract class DownloadService<T> extends Service {
         });
     }
 
+    /**
+     * Called from download thread when the file is downloaded with errors or
+     * not downloaded at all.
+     * @param downloadInfo
+     */
     private void handleError(final DownloadInfo downloadInfo) {
         handler.post(new Runnable() {
             @Override
@@ -173,6 +248,10 @@ public abstract class DownloadService<T> extends Service {
         });
     }
 
+
+    /**
+     * Clears all data after each downloading
+     */
     protected void clearAll() {
         isDownloading = false;
         downloadObject = null ;
