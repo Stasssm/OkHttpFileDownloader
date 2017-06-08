@@ -33,10 +33,15 @@ import test.com.okhttpfiledownloader.model.DownloadInfo;
 public abstract class DownloadService<T> extends Service {
 
     public static final String TAG = DownloadService.class.getName();
+    // this type we use when we want continue to download files after an error
     public static final int POLICY_CONTINUE = 1;
+    //this type we use when we want to handle error by ourselves.
     public static final int POLICY_HANDLE = 2;
+    //client for downloading the file
     protected OkHttpClient okHttpClient;
+    //flag that indicates that file currently downloading
     private volatile boolean isDownloading;
+    //current object that we are trying to download
     private volatile T downloadObject;
     private boolean isReconnect = false;
     private Thread thread;
@@ -58,11 +63,16 @@ public abstract class DownloadService<T> extends Service {
         return null;
     }
 
-    public void start() {
-        downloadObject = getNextDownloadObject();
-        if (downloadObject != null) {
-            thread = new DownloadThread();
-            thread.start();
+    public boolean start() {
+        if (!isDownloading) {
+            downloadObject = getNextDownloadObject();
+            if (downloadObject != null) {
+                thread = new DownloadThread();
+                thread.start();
+            }
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -78,7 +88,7 @@ public abstract class DownloadService<T> extends Service {
 
     protected abstract String getUrl(T downloadObject);
 
-    protected abstract String getFileName();
+    protected abstract String getFileName(T downloadObject);
 
     protected abstract ProgressListener getProgressListener();
 
@@ -163,7 +173,7 @@ public abstract class DownloadService<T> extends Service {
             super.run();
             isDownloading = true;
             String url = getUrl(downloadObject);
-            String fileName = getFileName();
+            String fileName = getFileName(downloadObject);
             if (!TextUtils.isEmpty(fileName)) {
                 File file = new File(fileName);
                 try {
@@ -177,14 +187,14 @@ public abstract class DownloadService<T> extends Service {
 
                     InputStream is = response.body().byteStream();
                     BufferedInputStream input = new BufferedInputStream(is);
-                    OutputStream output = new FileOutputStream(fileName);
+                    OutputStream output = new FileOutputStream(fileName,true);
 
                     byte[] data = new byte[1024];
                     int total = 0;
                     while ((total = input.read(data)) != -1) {
                         output.write(data, 0, total);
                     }
-                    //TODO check what happens when exeption is thrown
+                    //TODO check what happens when exception is thrown
                     // is there any memory leak in input and output buffer?
                     output.flush();
                     output.close();
